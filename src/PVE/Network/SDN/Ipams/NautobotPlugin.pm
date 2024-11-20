@@ -12,4 +12,49 @@ sub type {
     return 'nautobot';
 }
 
+sub properties {
+    return {
+	namespace => {
+	    type => 'string',
+	},
+    };
+}
+
+sub options {
+    return {
+	url => { optional => 0 },
+	token => { optional => 0 },
+	namespace => { optional => 0 },
+    };
+}
+
+# implem
+sub verify_api {
+    my ($class, $plugin_config) = @_;
+
+    my $url = $plugin_config->{url};
+    my $token = $plugin_config->{token};
+    my $namespace = $plugin_config->{namespace};
+    my $headers = [ 'Authorization' => "token $token", 'Accept' => "application/json; indent=4" ];
+
+    # check that the namespace exists AND that we have
+    # indeed API access
+    eval {
+	PVE::Network::SDN::Ipams::NautobotPlugin::get_namespace_id($url, $namespace, $headers) // die "namespace $namespace does not exist";
+    };
+    if ($@) {
+	die "Can't connect to nautobot api: $@";
+    }
+}
+
+# helpers
+sub get_namespace_id {
+    my ($url, $namespace, $headers) = @_;
+
+    my $result = PVE::Network::SDN::api_request("GET", "$url/ipam/namespaces/?q=$namespace", $headers);
+    my $data = @{$result->{results}}[0];
+    my $internalid = $data->{id};
+    return $internalid;
+}
+
 1;
