@@ -47,6 +47,12 @@ sub verify_api {
     }
 }
 
+sub on_update_hook {
+    my ($class, $plugin_config) = @_;
+
+    PVE::Network::SDN::Ipams::NautobotPlugin::verify_api($class, $plugin_config);
+}
+
 # helpers
 sub get_namespace_id {
     my ($url, $namespace, $headers) = @_;
