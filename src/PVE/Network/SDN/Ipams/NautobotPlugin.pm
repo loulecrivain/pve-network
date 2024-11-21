@@ -72,7 +72,7 @@ sub get_namespace_id {
 sub get_status_id {
     my ($url, $status, $headers) = @_;
 
-    my $result = PVE::Network::SDN::api_request("GET", "$url/extra/statuses/?q=$status", $headers);
+    my $result = PVE::Network::SDN::api_request("GET", "$url/extras/statuses/?q=$status", $headers);
     my $data = @{$result->{results}}[0];
     my $internalid = $data->{id};
     return $internalid;
