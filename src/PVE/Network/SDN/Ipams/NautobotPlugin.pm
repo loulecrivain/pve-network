@@ -48,10 +48,7 @@ sub add_subnet {
 
     #create subnet
     if (!$internalid) {
-	my $namespace_id = get_namespace_id($url, $namespace, $headers);
-	my $status_id = get_status_id($url, default_ip_status(), $headers);
-
-	my $params = { prefix => $cidr, namespace => { id => $namespace_id}, status => { id => $status_id}};
+	my $params = { prefix => $cidr, namespace => $namespace, status => default_ip_status()};
 
 	eval {
 		my $result = PVE::Network::SDN::api_request("POST", "$url/ipam/prefixes/", $headers, $params);
@@ -71,9 +68,6 @@ sub add_ip {
     my $namespace = $plugin_config->{namespace};
     my $headers = ['Content-Type' => "application/json", 'Authorization' => "token $token", 'Accept' => "application/json"];
 
-    my $namespace_id = get_namespace_id($url, $namespace, $headers);
-    my $status_id = get_status_id($url, default_ip_status(), $headers);
-
     my $description = undef;
     if ($is_gateway) {
 	$description = 'gateway'
@@ -81,7 +75,7 @@ sub add_ip {
 	$description = "mac:$mac";
     }
 
-    my $params = { address => "$ip/$mask", type => "dhcp", dns_name => $hostname, description => $description, namespace => { id => $namespace_id }, status => { id => $status_id }};
+    my $params = { address => "$ip/$mask", type => "dhcp", dns_name => $hostname, description => $description, namespace => $namespace, status => default_ip_status()};
 
     eval {
 	PVE::Network::SDN::api_request("POST", "$url/ipam/ip-addresses/", $headers, $params);
