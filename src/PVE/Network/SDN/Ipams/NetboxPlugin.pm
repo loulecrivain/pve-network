@@ -240,7 +240,7 @@ sub verify_api {
 
 
     eval {
-	PVE::Network::SDN::api_request("GET", "$url/ipam/prefixes/", $headers);
+	PVE::Network::SDN::api_request("GET", "$url/ipam/aggregates/", $headers);
     };
     if ($@) {
 	die "Can't connect to netbox api: $@";
