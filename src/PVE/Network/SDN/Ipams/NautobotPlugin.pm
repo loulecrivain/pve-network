@@ -32,6 +32,13 @@ sub default_ip_status {
     return 'Active';
 }
 
+sub default_headers {
+    my ($plugin_config) = @_;
+    my $token = $plugin_config->{token};
+
+    return ['Content-Type' => "application/json", 'Authorization' => "token $token", 'Accept' => "application/json"];
+}
+
 # implem
 
 sub add_subnet {
@@ -40,9 +47,8 @@ sub add_subnet {
     my $cidr = $subnet->{cidr};
     my $gateway = $subnet->{gateway};
     my $url = $plugin_config->{url};
-    my $token = $plugin_config->{token};
     my $namespace = $plugin_config->{namespace};
-    my $headers = ['Content-Type' => "application/json", 'Authorization' => "token $token", 'Accept' => "application/json"];
+    my $headers = default_headers($plugin_config);
 
     my $internalid = PVE::Network::SDN::Ipams::NetboxPlugin::get_prefix_id($url, $cidr, $headers);
 
@@ -64,9 +70,8 @@ sub add_ip {
 
     my $mask = $subnet->{mask};
     my $url = $plugin_config->{url};
-    my $token = $plugin_config->{token};
     my $namespace = $plugin_config->{namespace};
-    my $headers = ['Content-Type' => "application/json", 'Authorization' => "token $token", 'Accept' => "application/json"];
+    my $headers = default_headers($plugin_config);
 
     my $description = undef;
     if ($is_gateway) {
@@ -91,13 +96,41 @@ sub add_ip {
 }
 
 
+sub update_ip {
+    my ($class, $plugin_config, $subnetid, $subnet, $ip, $hostname, $mac, $vmid, $is_gateway, $noerr) = @_;
+
+    my $mask = $subnet->{mask};
+    my $url = $plugin_config->{url};
+    my $namespace = $plugin_config->{namespace};
+    my $headers = default_headers($plugin_config);
+
+    my $description = undef;
+    if ($is_gateway) {
+	$description = 'gateway'
+    } elsif ($mac) {
+	$description = "mac:$mac";
+    }
+
+    my $params = { address => "$ip/$mask", type => "dhcp", dns_name => $hostname, description => $description, namespace => $namespace, status => default_ip_status()};
+
+    my $ip_id = PVE::Network::SDN::Ipams::NetboxPlugin::get_ip_id($url, $ip, $headers);
+    die "can't find ip $ip in ipam" if !$ip_id;
+
+    eval {
+	PVE::Network::SDN::api_request("PATCH", "$url/ipam/ip-addresses/$ip_id/", $headers, $params);
+    };
+    if ($@) {
+	die "error updating ip $ip: $@" if !$noerr;
+    }
+}
+
+
 sub verify_api {
     my ($class, $plugin_config) = @_;
 
     my $url = $plugin_config->{url};
-    my $token = $plugin_config->{token};
     my $namespace = $plugin_config->{namespace};
-    my $headers = ['Content-Type' => "application/json", 'Authorization' => "token $token", 'Accept' => "application/json"];
+    my $headers = default_headers($plugin_config);
 
     # check that the namespace exists AND that default IP active status
     # exists AND that we have indeed API access
