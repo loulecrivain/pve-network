@@ -143,6 +143,30 @@ sub verify_api {
     }
 }
 
+sub get_ips_from_mac {
+    my ($class, $plugin_config, $mac, $zoneid) = @_;
+
+    my $url = $plugin_config->{url};
+    my $namespace = $plugin_config->{namespace};
+    my $headers = default_headers($plugin_config);
+
+    my $ip4 = undef;
+    my $ip6 = undef;
+
+    my $data = PVE::Network::SDN::api_request("GET", "$url/ipam/ip-addresses/?q=$mac", $headers);
+    for my $ip (@{$data->{results}}) {
+	if ($ip->{ip_version} == 4 && !$ip4) {
+	    ($ip4, undef) = split(/\//, $ip->{address});
+	}
+
+	if ($ip->{ip_version} == 6 && !$ip6) {
+	    ($ip6, undef) = split(/\//, $ip->{address});
+	}
+    }
+
+    return ($ip4, $ip6);
+}
+
 sub on_update_hook {
     my ($class, $plugin_config) = @_;
 
