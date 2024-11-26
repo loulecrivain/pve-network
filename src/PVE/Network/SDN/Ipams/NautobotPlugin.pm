@@ -104,15 +104,22 @@ sub add_range_next_freeip {
     my $headers = default_headers($plugin_config);
     my $cidr = $subnet->{cidr};
 
-    my $range_offset = NetAddr::IP->new($range->{'start-address'}) - NetAddr::IP->new($cidr);
+    my $minimal_size = NetAddr::IP->new($range->{'start-address'}) - NetAddr::IP->new($cidr);
     my $internalid = PVE::Network::SDN::Ipams::NetboxPlugin::get_prefix_id($url, $cidr, $headers);
-    my $params = { offset => $range_offset };
 
     eval {
-	my $result = PVE::Network::SDN::api_request("POST", "$url/ipam/prefixes/$internalid/available-ips/", $headers, $params);
-	my ($ip, undef) = split(/\//, @{$result}[0]->{address});
-	print "found free ip $ip in range $range->{'start-address'}-$range->{'end-address'}\n" if $ip;
-	return $ip
+	my $result = PVE::Network::SDN::api_request("GET", "$url/ipam/prefixes/$internalid/available-ips/?limit=$minimal_size", $headers);
+	# v important for NetAddr::IP comparison!
+	my @ips = map((split(/\//,$_->{address}))[0], @{$result});
+	# get 1st result
+	my $ip = (get_ips_within_range($range->{'start-address'}, $range->{'end-address'}, @ips))[0];
+
+	if ($ip) {
+	    print "found free ip $ip in range $range->{'start-address'}-$range->{'end-address'}\n"
+	} else { die "prefix out of space in range"; }
+
+	$class->add_ip($plugin_config, undef,  $subnet, $ip, $data->{hostname}, $data->{mac}, undef, 0, 0);
+	return $ip;
     };
 
     if ($@) {
@@ -199,6 +206,13 @@ sub on_update_hook {
 }
 
 # helpers
+sub get_ips_within_range {
+    my ($start_address, $end_address, @list) = @_;
+    $start_address = NetAddr::IP->new($start_address);
+    $end_address = NetAddr::IP->new($end_address);
+    return grep($start_address <= NetAddr::IP->new($_) <= $end_address, @list);
+}
+
 sub get_namespace_id {
     my ($url, $namespace, $headers) = @_;
 
