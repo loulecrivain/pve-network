@@ -5,6 +5,7 @@ use warnings;
 use PVE::INotify;
 use PVE::Cluster;
 use PVE::Tools;
+use NetAddr::IP;
 
 use base('PVE::Network::SDN::Ipams::NetboxPlugin');
 
@@ -92,6 +93,30 @@ sub add_ip {
 	} else {
 	    die "error adding subnet ip to ipam: ip $ip already exists: $@" if !$noerr;
 	}
+    }
+}
+
+sub add_range_next_freeip {
+    my ($class, $plugin_config, $subnet, $range, $data, $noerr) = @_;
+
+    my $url = $plugin_config->{url};
+    my $namespace = $plugin_config->{namespace};
+    my $headers = default_headers($plugin_config);
+    my $cidr = $subnet->{cidr};
+
+    my $range_offset = NetAddr::IP->new($range->{'start-address'}) - NetAddr::IP->new($cidr);
+    my $internalid = PVE::Network::SDN::Ipams::NetboxPlugin::get_prefix_id($url, $cidr, $headers);
+    my $params = { offset => $range_offset };
+
+    eval {
+	my $result = PVE::Network::SDN::api_request("POST", "$url/ipam/prefixes/$internalid/available-ips/", $headers, $params);
+	my ($ip, undef) = split(/\//, @{$result}[0]->{address});
+	print "found free ip $ip in range $range->{'start-address'}-$range->{'end-address'}\n" if $ip;
+	return $ip
+    };
+
+    if ($@) {
+	die "can't find free ip in range $range->{'start-address'}-$range->{'end-address'}: $@" if !$noerr;
     }
 }
 
