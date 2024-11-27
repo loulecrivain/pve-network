@@ -96,6 +96,33 @@ sub add_ip {
     }
 }
 
+sub add_next_freeip {
+    my ($class, $plugin_config, $subnetid, $subnet, $hostname, $mac, $vmid, $noerr) = @_;
+
+    my $cidr = $subnet->{cidr};
+
+    my $url = $plugin_config->{url};
+    my $namespace = $plugin_config->{namespace};
+    my $headers = default_headers($plugin_config);
+
+    my $internalid = PVE::Network::SDN::Ipams::NetboxPlugin::get_prefix_id($url, $cidr, $headers);
+
+    my $description = "mac:$mac" if $mac;
+
+    my $params = { type => "dhcp", dns_name => $hostname, description => $description, namespace => $namespace, status => default_ip_status() };
+
+    my $ip = eval {
+	my $result = PVE::Network::SDN::api_request("POST", "$url/ipam/prefixes/$internalid/available-ips/", $headers, $params);
+	my ($ip, undef) = split(/\//, $result->{address});
+	return $ip;
+    };
+
+    if ($@) {
+	die "can't find free ip in subnet $cidr: $@" if !$noerr;
+    }
+    return $ip;
+}
+
 sub add_range_next_freeip {
     my ($class, $plugin_config, $subnet, $range, $data, $noerr) = @_;
 
@@ -107,7 +134,7 @@ sub add_range_next_freeip {
     my $minimal_size = NetAddr::IP->new($range->{'start-address'}) - NetAddr::IP->new($cidr);
     my $internalid = PVE::Network::SDN::Ipams::NetboxPlugin::get_prefix_id($url, $cidr, $headers);
 
-    eval {
+    my $ip = eval {
 	my $result = PVE::Network::SDN::api_request("GET", "$url/ipam/prefixes/$internalid/available-ips/?limit=$minimal_size", $headers);
 	# v important for NetAddr::IP comparison!
 	my @ips = map((split(/\//,$_->{address}))[0], @{$result});
@@ -125,6 +152,7 @@ sub add_range_next_freeip {
     if ($@) {
 	die "can't find free ip in range $range->{'start-address'}-$range->{'end-address'}: $@" if !$noerr;
     }
+    return $ip;
 }
 
 
