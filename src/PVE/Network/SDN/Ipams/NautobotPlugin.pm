@@ -131,6 +131,7 @@ sub add_range_next_freeip {
     my $headers = default_headers($plugin_config);
     my $cidr = $subnet->{cidr};
 
+    # ranges are not supported natively in nautobot, hence why we have to get a little hacky.
     my $minimal_size = NetAddr::IP->new($range->{'start-address'}) - NetAddr::IP->new($cidr);
     my $internalid = PVE::Network::SDN::Ipams::NetboxPlugin::get_prefix_id($url, $cidr, $headers);
 
