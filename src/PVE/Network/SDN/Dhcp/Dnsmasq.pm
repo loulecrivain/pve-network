@@ -122,7 +122,7 @@ sub add_ip_mapping {
 }
 
 sub configure_subnet {
-    my ($class, $config, $dhcpid, $vnetid, $subnet_config) = @_;
+    my ($class, $config, $dhcpid, $vnetid, $subnet_config, $with_ranges) = @_;
 
     die "No gateway defined for subnet $subnet_config->{id}"
 	if !$subnet_config->{gateway};
@@ -140,6 +140,9 @@ sub configure_subnet {
     push @{$config}, "dhcp-option=tag:$tag,$option_string:dns-server,$subnet_config->{'dhcp-dns-server'}"
 	if $subnet_config->{'dhcp-dns-server'};
 
+    if (!$with_ranges) {
+	$class->configure_range($config, $dhcpid, $vnetid, $subnet_config, undef);
+    }
 }
 
 sub configure_range {
