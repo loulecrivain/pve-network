@@ -122,31 +122,10 @@ sub add_ip_mapping {
 }
 
 sub configure_subnet {
-    my ($class, $config, $dhcpid, $vnetid, $subnet_config, $with_ranges) = @_;
+    my ($class, $config, $dhcpid, $vnetid, $subnet_config) = @_;
 
     die "No gateway defined for subnet $subnet_config->{id}"
 	if !$subnet_config->{gateway};
-
-    my $tag = $subnet_config->{id};
-
-    my $option_string;
-    if (ip_is_ipv6($subnet_config->{network})) {
-	$option_string = 'option6';
-    } else {
-	$option_string = 'option';
-	push @{$config}, "dhcp-option=tag:$tag,$option_string:router,$subnet_config->{gateway}";
-    }
-
-    push @{$config}, "dhcp-option=tag:$tag,$option_string:dns-server,$subnet_config->{'dhcp-dns-server'}"
-	if $subnet_config->{'dhcp-dns-server'};
-
-    if (!$with_ranges) {
-	$class->configure_range($config, $dhcpid, $vnetid, $subnet_config, undef);
-    }
-}
-
-sub configure_range {
-    my ($class, $config, $dhcpid, $vnetid, $subnet_config, $range_config) = @_;
 
     my $tag = $subnet_config->{id};
 
@@ -158,6 +137,21 @@ sub configure_range {
     }
 
     push @{$config}, "dhcp-range=set:$tag,$network,static,$mask,infinite";
+
+    my $option_string;
+    if (ip_is_ipv6($subnet_config->{network})) {
+	$option_string = 'option6';
+    } else {
+	$option_string = 'option';
+	push @{$config}, "dhcp-option=tag:$tag,$option_string:router,$subnet_config->{gateway}";
+    }
+
+    push @{$config}, "dhcp-option=tag:$tag,$option_string:dns-server,$subnet_config->{'dhcp-dns-server'}"
+	if $subnet_config->{'dhcp-dns-server'};
+}
+
+sub configure_range {
+    # noop, everything is done within configure_subnet
 }
 
 sub configure_vnet {

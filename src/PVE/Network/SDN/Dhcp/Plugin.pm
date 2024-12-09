@@ -33,7 +33,7 @@ sub configure_range {
 }
 
 sub configure_subnet {
-    my ($class, $config, $dhcpid, $vnetid, $subnet_config, $with_ranges) = @_;
+    my ($class, $config, $dhcpid, $vnetid, $subnet_config) = @_;
     die 'implement in sub class';
 }
 

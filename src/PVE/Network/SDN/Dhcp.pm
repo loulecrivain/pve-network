@@ -99,11 +99,10 @@ sub regenerate_config {
 		my $dhcp_ranges = PVE::Network::SDN::Subnets::get_dhcp_ranges($subnet_config);
 
 		next if !$dhcp_ranges;
-		my $with_ranges = (scalar $dhcp_ranges->@* > 0);
 		my ($zone, $subnet_network, $subnet_mask) = split(/-/, $subnet_id);
 		next if $zone ne $zoneid;
 
-		eval { $dhcp_plugin->configure_subnet($config, $zoneid, $vnetid, $subnet_config, $with_ranges) };
+		eval { $dhcp_plugin->configure_subnet($config, $zoneid, $vnetid, $subnet_config) };
 
 		warn "Could not configure subnet $subnet_id: $@\n" if $@;
 
