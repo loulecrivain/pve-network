@@ -5,6 +5,7 @@ use warnings;
 use PVE::INotify;
 use PVE::Cluster;
 use PVE::Tools;
+use List::Util qw(all);
 use NetAddr::IP;
 
 use base('PVE::Network::SDN::Ipams::Plugin');
@@ -56,7 +57,7 @@ sub add_subnet {
 
     my $internalid = get_prefix_id($plugin_config, $cidr, $noerr);
 
-    #create subnet
+    #create subnet if it doesn't already exist
     if (!$internalid) {
 	my $params = {
 	    prefix => $cidr, namespace => $namespace,
@@ -83,8 +84,15 @@ sub del_subnet {
     my $internalid = get_prefix_id($plugin_config, $cidr, $noerr);
     return if !$internalid;
 
-    # TODO check that prefix is empty before deletion
-    return;
+    if (!subnet_is_deletable(
+	     $plugin_config, $subnetid, $subnet, $internalid, $noerr
+	)) {
+	die "cannot delete prefix $cidr, not empty!";
+    }
+
+    # delete associated IP addresses (normally should only be gateway IPs)
+    $class->empty_subnet(
+	$plugin_config, $subnetid, $subnet, $internalid, $noerr);
 
     eval {
 	PVE::Network::SDN::api_request(
@@ -265,6 +273,65 @@ sub del_ip {
     };
     if ($@) {
 	die "error deleting ip $ip : $@" if !$noerr;
+    }
+}
+
+sub empty_subnet {
+    my ($class, $plugin_config, $subnetid, $subnet, $subnetuuid, $noerr) = @_;
+
+    my $url = $plugin_config->{url};
+    my $namespace = $plugin_config->{namespace};
+    my $headers = default_headers($plugin_config);
+
+    my $response = eval {
+	return PVE::Network::SDN::api_request(
+	    "GET",
+	    "$url/ipam/ip-addresses/?namespace=$namespace&parent=$subnetuuid",
+	    $headers)
+    };
+    if ($@) {
+	die "error querying prefix $subnet: $@" if !$noerr;
+    }
+
+    for my $ip (@{$response->{results}}) {
+	del_ip($class, $plugin_config, $subnetid, $subnet, $ip->{host}, $noerr);
+    }
+}
+
+sub subnet_is_deletable {
+    my ($plugin_config, $subnetid, $subnet, $subnetuuid, $noerr) = @_;
+
+    my $url = $plugin_config->{url};
+    my $namespace = $plugin_config->{namespace};
+    my $headers = default_headers($plugin_config);
+
+
+    my $response = eval {
+	return PVE::Network::SDN::api_request(
+	    "GET",
+	    "$url/ipam/ip-addresses/?namespace=$namespace&parent=$subnetuuid",
+	    $headers)
+    };
+    if ($@) {
+	die "error querying prefix $subnet: $@" if !$noerr;
+    }
+    my $n_ips = scalar $response->{results}->@*;
+
+    # least costly check operation 1st
+    if ($n_ips == 0) {
+	# completely empty, delete ok
+	return 1;
+    } elsif (
+	!(all {$_ == 1} (
+	    map {
+		is_ip_gateway($plugin_config, $_->{host}, $noerr)
+	    } $response->{results}->@*
+	))) {
+	# some remaining IPs are not gateway, nok
+	return 0;
+    } else {
+	# remaining IPs are all gateway, delete ok
+	return 1;
     }
 }
 
