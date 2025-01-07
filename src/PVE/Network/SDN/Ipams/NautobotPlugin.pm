@@ -54,7 +54,7 @@ sub add_subnet {
     my $namespace = $plugin_config->{namespace};
     my $headers = default_headers($plugin_config);
 
-    my $internalid = get_prefix_id($url, $cidr, $headers, $noerr);
+    my $internalid = get_prefix_id($plugin_config, $cidr, $noerr);
 
     #create subnet
     if (!$internalid) {
@@ -80,7 +80,7 @@ sub del_subnet {
     my $url = $plugin_config->{url};
     my $headers = default_headers($plugin_config);
 
-    my $internalid = get_prefix_id($url, $cidr, $headers, $noerr);
+    my $internalid = get_prefix_id($plugin_config, $cidr, $noerr);
     return if !$internalid;
 
     # TODO check that prefix is empty before deletion
@@ -142,7 +142,7 @@ sub add_next_freeip {
     my $namespace = $plugin_config->{namespace};
     my $headers = default_headers($plugin_config);
 
-    my $internalid = get_prefix_id($url, $cidr, $headers, $noerr);
+    my $internalid = get_prefix_id($plugin_config, $cidr, $noerr);
     die "cannot find prefix $cidr in Nautobot" if !$internalid;
 
     my $description = undef;
@@ -235,7 +235,7 @@ sub update_ip {
 	status => default_ip_status()
     };
 
-    my $ip_id = get_ip_id($url, $ip, $headers, $noerr);
+    my $ip_id = get_ip_id($plugin_config, $ip, $noerr);
     die "can't find ip $ip in ipam" if !$noerr && !$ip_id;
 
     eval {
@@ -256,7 +256,7 @@ sub del_ip {
     my $url = $plugin_config->{url};
     my $headers = default_headers($plugin_config);
 
-    my $ip_id = get_ip_id($url, $ip, $headers, $noerr);
+    my $ip_id = get_ip_id($plugin_config, $ip, $noerr);
     die "can't find ip $ip in ipam" if !$ip_id && !$noerr;
 
     eval {
@@ -267,7 +267,6 @@ sub del_ip {
 	die "error deleting ip $ip : $@" if !$noerr;
     }
 }
-
 
 sub verify_api {
     my ($class, $plugin_config) = @_;
@@ -330,7 +329,11 @@ sub get_ips_within_range {
 }
 
 sub get_ip_id {
-    my ($url, $ip, $headers, $noerr) = @_;
+    my ($plugin_config, $ip, $noerr) = @_;
+
+    my $url = $plugin_config->{url};
+    my $namespace = $plugin_config->{namespace};
+    my $headers = default_headers($plugin_config);
 
     my $result = eval {
 	return PVE::Network::SDN::api_request(
@@ -346,7 +349,11 @@ sub get_ip_id {
 }
 
 sub get_prefix_id {
-    my ($url, $cidr, $headers, $noerr) = @_;
+    my ($plugin_config, $cidr, $noerr) = @_;
+
+    my $url = $plugin_config->{url};
+    my $namespace = $plugin_config->{namespace};
+    my $headers = default_headers($plugin_config);
 
     my $result = eval {
 	return PVE::Network::SDN::api_request(
@@ -394,7 +401,11 @@ sub get_status_id {
 }
 
 sub is_ip_gateway {
-    my ($url, $ip, $headers, $noerr) = @_;
+    my ($plugin_config, $ip, $noerr) = @_;
+
+    my $url = $plugin_config->{url};
+    my $namespace = $plugin_config->{namespace};
+    my $headers = default_headers($plugin_config);
 
     my $result = eval {
 	return PVE::Network::SDN::api_request(
