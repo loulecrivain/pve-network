@@ -1,0 +1,11 @@
+bless( {
+                  '_content' => '',
+                  '_headers' => bless( {
+                                         'accept' => 'application/json',
+                                         'authorization' => 'token FAKETESTTOKEN',
+                                         'content-type' => 'application/json; charset=UTF-8',
+                                       }, 'HTTP::Headers' ),
+                  '_max_body_size' => undef,
+                  '_method' => 'DELETE',
+                  '_uri' => bless( do{\(my $o = 'http://localhost:8080/api/ipam/ip-addresses/1/')}, 'URI::http' )
+                }, 'HTTP::Request' );
